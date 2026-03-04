@@ -1,7 +1,8 @@
-from src.models.dataset import Dataset
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from src.database.get_db import get_db_session
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
+from src.utils.helper import check_dataset_exists_by_id
 
 router = APIRouter()
 
@@ -14,11 +15,13 @@ def delete_dataset(
     """
     Delete a dataset and all its associated data elements.
     """
-    existing_dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
-    if not existing_dataset:
-        raise HTTPException(status_code=404, detail="Dataset not found")
-
+    existing_dataset = check_dataset_exists_by_id(db, dataset_id)    
     db.delete(existing_dataset)
-    db.commit()
+
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
 
     return {"detail": f"Dataset {existing_dataset.name} and associated data elements deleted successfully"}

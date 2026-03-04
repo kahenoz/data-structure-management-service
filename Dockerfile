@@ -17,7 +17,7 @@ COPY . .
 
 ENV PYTHONPATH=/app
 RUN pip install pytest
-RUN pytest src/tests/
+RUN pytest tests/
 
 EXPOSE 80
 
