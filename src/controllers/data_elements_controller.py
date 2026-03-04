@@ -1,9 +1,11 @@
+from sqlalchemy.exc import SQLAlchemyError
 from src.models.data_elements import DataElement
 from src.schemas.data_elements import DataElementCreate, DataElementResponse, DatasetElementsResponse
-from src.models.dataset import Dataset
 from sqlalchemy.orm import Session
 from src.database.get_db import get_db_session
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
+
+from src.utils.helper import check_dataset_exists_by_id, check_data_element_exists, return_data_element_by_id
 
 router = APIRouter()
 
@@ -21,23 +23,12 @@ def create_data_elements(
     elements = []
 
     for item in payload:
-        existing_dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
-        if not existing_dataset:
-            raise HTTPException(status_code=404, detail="Dataset not found")
 
-        existing = (
-            db.query(DataElement)
-            .filter(
-                DataElement.dataset_id == dataset_id,
-                DataElement.name == item.name
-            )
-            .first()
-        )
-        if existing:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Data element '{item.name}' already exists in dataset"
-            )
+        #check if dataset already exists    
+        check_dataset_exists_by_id(db, dataset_id)
+
+        #check if element already exists in the dataset
+        check_data_element_exists(db, dataset_id, item.name)
 
         element = DataElement(
             dataset_id=dataset_id,
@@ -52,7 +43,11 @@ def create_data_elements(
         db.add(element)
         elements.append(element)
 
-    db.commit()
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
 
     for e in elements:
         db.refresh(e)
@@ -72,9 +67,7 @@ def list_data_elements(
     """
     List all data elements for a dataset.
     """
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
-    if not dataset:
-        raise HTTPException(status_code=404, detail="Dataset not found")
+    dataset = check_dataset_exists_by_id(db, dataset_id)
 
     return {
         "dataset": {
@@ -97,28 +90,24 @@ def update_data_element(
     Update an existing data element in a dataset.
     """
     #Check if dataset already exists
-    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
-    if not dataset:
-        raise HTTPException(status_code=404, detail="Dataset not found")    
+    check_dataset_exists_by_id(db, dataset_id)
+
+    data_element = return_data_element_by_id(db, dataset_id, payload.name)
 
     #Overwrite the element of the dataset with the new values
-    data_element = db.query(DataElement).filter(
-        DataElement.dataset_id == dataset_id,
-        DataElement.name == payload.name
-    ).first()
-
-    if not data_element:
-        raise HTTPException(status_code=404, detail="Data element not found in dataset")
-
     data_element.name = payload.name
     data_element.data_type = payload.data_type
-    data_element.foreign_key = payload.foreign_key
+    data_element.foreign_key = payload.foreign_key.model_dump() if payload.foreign_key else None
     data_element.not_null = payload.not_null
     data_element.default = payload.default
 
-    db.commit()
-    db.refresh(data_element)
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
 
+    db.refresh(data_element)
     return data_element
 
 
@@ -129,5 +118,4 @@ def get_all_elements(
     """
     Get all data elements across all datasets.
     """
-    elements = db.query(DataElement).all()
-    return elements
+    return db.query(DataElement).all()
