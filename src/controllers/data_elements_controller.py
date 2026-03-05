@@ -22,11 +22,10 @@ def create_data_elements(
     """
     elements = []
 
+    #check if dataset already exists    
+    check_dataset_exists_by_id(db, dataset_id)
+
     for item in payload:
-
-        #check if dataset already exists    
-        check_dataset_exists_by_id(db, dataset_id)
-
         #check if element already exists in the dataset
         check_data_element_exists(db, dataset_id, item.name)
 
@@ -100,6 +99,7 @@ def update_data_element(
     data_element.foreign_key = payload.foreign_key.model_dump() if payload.foreign_key else None
     data_element.not_null = payload.not_null
     data_element.default = payload.default
+    data_element.is_pii = payload.is_pii
 
     try:
         db.commit()

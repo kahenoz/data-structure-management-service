@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 
-def check_dataset_exists_by_name(db: Session, dataset_name: str) -> bool:
+def check_dataset_exists_by_name(db: Session, dataset_name: str) -> None:
     """
     Check if dataset exists by name, if it does, raise an HTTPException
     """
@@ -29,7 +29,7 @@ def check_dataset_exists_by_id(db: Session, dataset_id: int) -> bool:
     return existing_dataset
 
 
-def check_data_element_exists(db: Session, dataset_id: int, element_name: str) -> bool:
+def check_data_element_exists(db: Session, dataset_id: int, element_name: str) -> None:
     """
     Check if data element exists by ID
     """
@@ -42,7 +42,7 @@ def check_data_element_exists(db: Session, dataset_id: int, element_name: str) -
             detail=f"Data element '{element_name}' already exists in dataset"
         )
     
-def return_data_element_by_id(db: Session, dataset_id: int, element_name: int) -> DataElement:
+def return_data_element_by_id(db: Session, dataset_id: int, element_name: str) -> DataElement:
     """
     Return data element by ID
     """
